@@ -1,0 +1,17 @@
+INPUT:
+  PIXEL_MEAN: [0., 0., 0.]
+  PIXEL_STD: [1., 1., 1.]
+
+DATALOADER:
+  TRAIN_X:
+    SAMPLER: 'RandomDomainSampler'
+    BATCH_SIZE: 126
+    N_DOMAIN : 3
+  TEST:
+    BATCH_SIZE: 128
+
+OPTIM:
+  NAME: 'sgd'
+  LR: 0.004
+  STEPSIZE: [20]
+  MAX_EPOCH: 40
