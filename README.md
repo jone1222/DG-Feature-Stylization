@@ -16,7 +16,7 @@
 
 ### Dependency
 - Python 3.6
-- CUDA 11.0
+- CUDA
 - Pytorch 1.7
 - Check the requirements.txt
 
@@ -32,10 +32,10 @@ git clone https://github.com/jone1222/DG-Feature-Stylization
 cd DG-Feature-Stylization/
 
 # Create a conda environment
-conda create -n dassl python=3.7
+conda create -n featstyle python=3.7
 
 # Activate the environment
-conda activate dassl
+conda activate featstyle
 
 # Install dependencies
 pip install -r requirements.txt
