@@ -1,4 +1,5 @@
 import time
+import numpy as np
 import os.path as osp
 import datetime
 from collections import OrderedDict
@@ -49,39 +50,11 @@ class SimpleNet(nn.Module):
         if num_classes > 0:
             self.classifier = nn.Linear(fdim, num_classes)
 
-        self.bn_train = False
-        if model_cfg.BACKBONE.FREEZE_BN:
-            self.freeze_bn()
-            self.bn_train = True
-
         self._fdim = fdim
 
     @property
     def fdim(self):
         return self._fdim
-
-    def freeze_bn(self):
-        for m in self.backbone.modules():
-            if isinstance(m, nn.BatchNorm2d):
-                m.eval()
-
-    def get_feature(self, x):
-        f = self.backbone(x)
-        if self.head is not None:
-            f = self.head(f)
-
-        return f
-
-    def classify(self, feature):
-        return self.classifier(feature)
-
-    def train(self, mode=True):
-        """
-        Override the default train() to freeze the BN parameters
-        """
-        super().train(mode)
-        if self.bn_train:
-            self.freeze_bn()
 
     def forward(self, x, return_feature=False):
         f = self.backbone(x)
@@ -98,13 +71,17 @@ class SimpleNet(nn.Module):
 
         return y
 
-class TextureSimpleNet(nn.Module):
+class FeatureStylizationNet(nn.Module):
     """A simple neural network composed of a CNN backbone
     and optionally a head such as mlp for classification.
     """
 
     def __init__(self, cfg, model_cfg, num_classes, **kwargs):
         super().__init__()
+
+        available_model_list = ['resnet18_stylize', 'resnet34_stylize', 'resnet50_stylize', 'resnet101_stylize', 'resnet152_stylize']
+        assert model_cfg.BACKBONE.NAME in available_model_list, 'Expected backbone with stylization block, but got {}'.format(model_cfg.BACKBONE.NAME)
+
         self.backbone = build_backbone(
             model_cfg.BACKBONE.NAME,
             verbose=cfg.VERBOSE,
@@ -162,9 +139,8 @@ class TextureSimpleNet(nn.Module):
             if isinstance(m, nn.BatchNorm2d):
                 m.eval()
 
-    def forward(self, x, return_feature=False, cur_epoch_ratio=0):
-        # import pdb; pdb.set_trace()
-        f, f_tr = self.backbone(x, cur_epoch_ratio=cur_epoch_ratio)
+    def forward(self, x, return_feature=False, stylization_layer_idx = 2):
+        f, f_tr = self.backbone(x, stylization_layer_idx = stylization_layer_idx)
 
         if self.head is not None:
             f = self.head(f)
@@ -207,6 +183,8 @@ class TrainerBase:
                 'Cannot assign sched before super().__init__() call'
             )
 
+        assert name not in self._models, 'Found duplicate model names'
+
         self._models[name] = model
         self._optims[name] = optim
         self._scheds[name] = sched
@@ -221,19 +199,30 @@ class TrainerBase:
         else:
             return names_real
 
-    def save_model(self, epoch, directory, is_best=False):
+    def save_model(self, epoch, directory, is_best=False, model_name=''):
         names = self.get_model_names()
 
         for name in names:
+            model_dict = self._models[name].state_dict()
+
+            optim_dict = None
+            if self._optims[name] is not None:
+                optim_dict = self._optims[name].state_dict()
+
+            sched_dict = None
+            if self._scheds[name] is not None:
+                sched_dict = self._scheds[name].state_dict()
+
             save_checkpoint(
                 {
-                    'state_dict': self._models[name].state_dict(),
+                    'state_dict': model_dict,
                     'epoch': epoch + 1,
-                    'optimizer': self._optims[name].state_dict(),
-                    'scheduler': self._scheds[name].state_dict()
+                    'optimizer': optim_dict,
+                    'scheduler': sched_dict
                 },
                 osp.join(directory, name),
-                is_best=is_best
+                is_best=is_best,
+                model_name=model_name
             )
 
     def resume_model_if_exist(self, directory):
@@ -250,6 +239,10 @@ class TrainerBase:
             print('No checkpoint found, train from scratch')
             return 0
 
+        print(
+            'Found checkpoint in "{}". Will resume training'.format(directory)
+        )
+
         for name in names:
             path = osp.join(directory, name)
             start_epoch = resume_from_checkpoint(
@@ -260,10 +253,19 @@ class TrainerBase:
         return start_epoch
 
     def load_model(self, directory, epoch=None):
+        if not directory:
+            print(
+                'Note that load_model() is skipped as no pretrained model is given'
+            )
+            return
+
         names = self.get_model_names()
-        model_file = 'model.pth.tar-' + str(
-            epoch
-        ) if epoch else 'model-best.pth.tar'
+
+        # By default, the best model is loaded
+        model_file = 'model-best.pth.tar'
+
+        if epoch is not None:
+            model_file = 'model.pth.tar-' + str(epoch)
 
         for name in names:
             model_path = osp.join(directory, name, model_file)
@@ -368,7 +370,8 @@ class TrainerBase:
     def model_zero_grad(self, names=None):
         names = self.get_model_names(names)
         for name in names:
-            self._optims[name].zero_grad()
+            if self._optims[name] is not None:
+                self._optims[name].zero_grad()
 
     def model_backward(self, loss):
         self.detect_anomaly(loss)
@@ -377,7 +380,8 @@ class TrainerBase:
     def model_update(self, names=None):
         names = self.get_model_names(names)
         for name in names:
-            self._optims[name].step()
+            if self._optims[name] is not None:
+                self._optims[name].step()
 
     def model_backward_and_update(self, loss, names=None):
         self.model_zero_grad(names)
@@ -406,6 +410,7 @@ class SimpleTrainer(TrainerBase):
         self.build_data_loader()
         self.build_model()
         self.evaluator = build_evaluator(cfg, lab2cname=self.dm.lab2cname)
+        self.best_result = -np.inf
 
     def check_cfg(self, cfg):
         """Check whether some variables are set correctly for
@@ -473,12 +478,12 @@ class SimpleTrainer(TrainerBase):
     def after_train(self):
         print('Finished training')
 
-        # Do testing
-        if not self.cfg.TEST.NO_TEST:
+        do_test = not self.cfg.TEST.NO_TEST
+        if do_test:
+            if self.cfg.TEST.FINAL_MODEL == 'best_val':
+                print('Deploy the model with the best val performance')
+                self.load_model(self.output_dir)
             self.test()
-
-        # Save model
-        self.save_model(self.epoch, self.output_dir)
 
         # Show elapsed time
         elapsed = round(time.time() - self.time_start)
@@ -489,31 +494,41 @@ class SimpleTrainer(TrainerBase):
         self.close_writer()
 
     def after_epoch(self):
-        not_last_epoch = (self.epoch + 1) != self.max_epoch
-        do_test = self.cfg.TEST.EVAL_FREQ > 0 and not self.cfg.TEST.NO_TEST
-        meet_test_freq = (
-            self.epoch + 1
-        ) % self.cfg.TEST.EVAL_FREQ == 0 if do_test else False
+        last_epoch = (self.epoch + 1) == self.max_epoch
+        do_test = not self.cfg.TEST.NO_TEST
         meet_checkpoint_freq = (
             self.epoch + 1
         ) % self.cfg.TRAIN.CHECKPOINT_FREQ == 0 if self.cfg.TRAIN.CHECKPOINT_FREQ > 0 else False
 
-        if not_last_epoch and do_test and meet_test_freq:
-            self.test()
+        if do_test and self.cfg.TEST.FINAL_MODEL == 'best_val':
+            curr_result = self.test(split='test')
+            is_best = curr_result > self.best_result
+            if is_best:
+                self.best_result = curr_result
+                self.save_model(
+                    self.epoch,
+                    self.output_dir,
+                    model_name='model-best.pth.tar'
+                )
 
-        if not_last_epoch and meet_checkpoint_freq:
+        if meet_checkpoint_freq or last_epoch:
             self.save_model(self.epoch, self.output_dir)
 
     @torch.no_grad()
-    def test(self):
+    def test(self, split=None):
         """A generic testing pipeline."""
         self.set_model_mode('eval')
         self.evaluator.reset()
 
-        split = self.cfg.TEST.SPLIT
-        print('Do evaluation on {} set'.format(split))
-        data_loader = self.val_loader if split == 'val' else self.test_loader
-        assert data_loader is not None
+        if split is None:
+            split = self.cfg.TEST.SPLIT
+
+        if split == 'val' and self.val_loader is not None:
+            data_loader = self.val_loader
+            print('Do evaluation on {} set'.format(split))
+        else:
+            data_loader = self.test_loader
+            print('Do evaluation on test set')
 
         for batch_idx, batch in enumerate(data_loader):
             input, label = self.parse_batch_test(batch)
@@ -525,6 +540,8 @@ class SimpleTrainer(TrainerBase):
         for k, v in results.items():
             tag = '{}/{}'.format(split, k)
             self.write_scalar(tag, v, self.epoch)
+
+        return list(results.values())[0]
 
     def model_inference(self, input):
         return self.model(input)

@@ -52,15 +52,40 @@ def reset_cfg(cfg, args):
         cfg.MODEL.HEAD.NAME = args.head
 
 
+def extend_cfg(cfg):
+    """
+    Add new config variables.
+
+    E.g.
+        from yacs.config import CfgNode as CN
+        cfg.TRAINER.MY_MODEL = CN()
+        cfg.TRAINER.MY_MODEL.PARAM_A = 1.
+        cfg.TRAINER.MY_MODEL.PARAM_B = 0.5
+        cfg.TRAINER.MY_MODEL.PARAM_C = False
+    """
+    pass
+
+
 def setup_cfg(args):
     cfg = get_cfg_default()
-    reset_cfg(cfg, args)
+    extend_cfg(cfg)
+
+    # 1. From the dataset config file
     if args.dataset_config_file:
         cfg.merge_from_file(args.dataset_config_file)
+
+    # 2. From the method config file
     if args.config_file:
         cfg.merge_from_file(args.config_file)
+
+    # 3. From input arguments
+    reset_cfg(cfg, args)
+
+    # 4. From optional input arguments
     cfg.merge_from_list(args.opts)
+
     cfg.freeze()
+
     return cfg
 
 

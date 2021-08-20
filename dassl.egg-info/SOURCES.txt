@@ -23,10 +23,12 @@ dassl/data/datasets/da/office31.py
 dassl/data/datasets/da/office_home.py
 dassl/data/datasets/da/visda17.py
 dassl/data/datasets/dg/__init__.py
+dassl/data/datasets/dg/cifar_c.py
 dassl/data/datasets/dg/digit_single.py
 dassl/data/datasets/dg/digits_dg.py
 dassl/data/datasets/dg/office_home_dg.py
 dassl/data/datasets/dg/pacs.py
+dassl/data/datasets/dg/vlcs.py
 dassl/data/datasets/ssl/__init__.py
 dassl/data/datasets/ssl/cifar.py
 dassl/data/datasets/ssl/stl10.py
@@ -91,6 +93,7 @@ dassl/modeling/network/ddaig_fcn.py
 dassl/modeling/ops/__init__.py
 dassl/modeling/ops/cross_entropy.py
 dassl/modeling/ops/dsbn.py
+dassl/modeling/ops/mixstyle.py
 dassl/modeling/ops/mixup.py
 dassl/modeling/ops/mmd.py
 dassl/modeling/ops/optimal_transport.py

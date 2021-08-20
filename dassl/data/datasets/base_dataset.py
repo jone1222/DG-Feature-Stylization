@@ -1,7 +1,9 @@
 import os
+import random
 import os.path as osp
 import tarfile
 import zipfile
+from collections import defaultdict
 import gdown
 
 from dassl.utils import check_isfile
@@ -52,7 +54,7 @@ class DatasetBase:
     2) domain generalization
     3) semi-supervised learning
     """
-    dataset_dir = '' # directory which contains the dataset
+    dataset_dir = '' # the directory where the dataset is stored
     domains = [] # string names of all domains
 
     def __init__(self, train_x=None, train_u=None, val=None, test=None):
@@ -62,7 +64,7 @@ class DatasetBase:
         self._test = test # test data
 
         self._num_classes = self.get_num_classes(train_x)
-        self._lab2cname = self.get_label_classname_mapping(train_x)
+        self._lab2cname, self._classnames = self.get_lab2cname(train_x)
 
     @property
     def train_x(self):
@@ -85,21 +87,38 @@ class DatasetBase:
         return self._lab2cname
 
     @property
+    def classnames(self):
+        return self._classnames
+
+    @property
     def num_classes(self):
         return self._num_classes
 
     def get_num_classes(self, data_source):
+        """Count number of classes.
+
+        Args:
+            data_source (list): a list of Datum objects.
+        """
         label_set = set()
         for item in data_source:
             label_set.add(item.label)
         return max(label_set) + 1
 
-    def get_label_classname_mapping(self, data_source):
-        tmp = set()
+    def get_lab2cname(self, data_source):
+        """Get a label-to-classname mapping (dict).
+
+        Args:
+            data_source (list): a list of Datum objects.
+        """
+        container = set()
         for item in data_source:
-            tmp.add((item.label, item.classname))
-        mapping = {label: classname for label, classname in tmp}
-        return mapping
+            container.add((item.label, item.classname))
+        mapping = {label: classname for label, classname in container}
+        labels = list(mapping.keys())
+        labels.sort()
+        classnames = [mapping[label] for label in labels]
+        return mapping, classnames
 
     def check_input_domains(self, source_domains, target_domains):
         self.is_input_domain_valid(source_domains)
@@ -134,3 +153,56 @@ class DatasetBase:
             zip_ref.close()
 
         print('File extracted to {}'.format(osp.dirname(dst)))
+
+    def generate_fewshot_dataset(self, *data_sources, num_shots=-1):
+        """Generate a few-shot dataset (typically for the training set).
+
+        This function is useful when one wants to evaluate a model
+        in a few-shot learning setting where each class only contains
+        a few number of images.
+
+        Args:
+            data_sources: each individual is a list containing Datum objects.
+            num_shots (int): number of instances per class to sample.
+        """
+        if num_shots < 1:
+            if len(data_sources) == 1:
+                return data_sources[0]
+            return data_sources
+
+        data_source = data_sources[0]
+        num_classes = self.get_num_classes(data_source)
+
+        print(
+            'CREATE A FEW-SHOT SETTING: '
+            f'sample {num_shots} images from '
+            f'each one of the {num_classes} classes'
+        )
+
+        output = []
+
+        for data_source in data_sources:
+            tracker = defaultdict(list)
+
+            for item in data_source:
+                tracker[item.label].append(item)
+
+            dataset = []
+
+            for label, items in tracker.items():
+                if len(items) >= num_shots:
+                    sampled_items = random.sample(items, num_shots)
+                else:
+                    print(
+                        f'Repetition applied to class {label} due '
+                        f'to limited size ({len(items)} vs. '
+                        f'{num_shots} required)'
+                    )
+                    sampled_items = random.choices(items, k=num_shots)
+                dataset.extend(sampled_items)
+
+            output.append(dataset)
+
+        if len(output) == 1:
+            return output[0]
+        return output

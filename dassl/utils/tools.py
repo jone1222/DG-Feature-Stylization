@@ -67,8 +67,7 @@ def set_random_seed(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+
 
 def download_url(url, dst):
     """Download file from a url to a destination.
@@ -134,13 +133,17 @@ def collect_env_info():
     return env_str
 
 
-def listdir_nohidden(path):
+def listdir_nohidden(path, sort=False):
     """List non-hidden items in a directory.
 
     Args:
          path (str): directory path.
+         sort (bool): sort the items.
     """
-    return [f for f in os.listdir(path) if not f.startswith('.')]
+    items = [f for f in os.listdir(path) if not f.startswith('.')]
+    if sort:
+        items.sort()
+    return items
 
 
 def get_most_similar_str_to_a_from_b(a, b):

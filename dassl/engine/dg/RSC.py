@@ -5,7 +5,6 @@ from torchvision import transforms as T
 from torchvision.utils import make_grid, save_image
 import numpy as np
 import os
-from matplotlib import cm
 
 from dassl.engine import TRAINER_REGISTRY, TrainerX
 from dassl.metrics import compute_accuracy

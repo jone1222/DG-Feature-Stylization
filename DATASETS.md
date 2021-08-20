@@ -20,9 +20,12 @@ $DATA/
 
 [Domain Generalization](#domain-generalization)
 - [PACS](#pacs)
+- [VLCS](#vlcs)
 - [Office-Home-DG](#office-home-dg)
 - [Digits-DG](#digits-dg)
 - [Digit-Single](#digit-single)
+- [CIFAR-10-C](#cifar-10-c)
+- [CIFAR-100-C](#cifar-100-c)
 
 [Semi-Supervised Learning](#semi-supervised-learning)
 - [CIFAR10/100 and SVHN](#cifar10100-and-svhn)
@@ -51,6 +54,8 @@ office31/
         bike/
         ...
 ```
+
+Note that within each domain folder you need to move all class folders out of the `images/` folder and then delete the `images/` folder.
 
 ### Office-Home
 
@@ -104,6 +109,8 @@ cifar_stl/
         train/
         test/
 ```
+
+Note that only 9 classes shared by both datasets are kept.
 
 ### Digit-5
 
@@ -170,7 +177,21 @@ pacs/
     splits/
 ```
 
-It is ok to not manually download this dataset because once you run ``tools/train.py``, the code will detect if the dataset exists or not and automatically download the dataset to ``$DATA`` if missing. This applies to PACS, Office-Home and Digits-DG.
+You do not necessarily have to manually download this dataset. Once you run ``tools/train.py``, the code will detect if the dataset exists or not and automatically download the dataset to ``$DATA`` if missing. This also applies to VLCS, Office-Home-DG, and Digits-DG.
+
+### VLCS
+
+Download link: [google drive](https://drive.google.com/file/d/1r0WL5DDqKfSPp9E3tRENwHaXNs1olLZd/view?usp=sharing) (credit to https://github.com/fmcarlucci/JigenDG#vlcs)
+
+File structure:
+
+```
+VLCS/
+    CALTECH/
+    LABELME/
+    PASCAL/
+    SUN/
+```
 
 ### Office-Home-DG
 
@@ -203,6 +224,50 @@ digits_dg/
 ### Digit-Single
 Follow the steps for [Digit-5](#digit-5) to organize the dataset.
 
+### CIFAR-10-C
+
+First download the CIFAR-10-C dataset from https://zenodo.org/record/2535967#.YFxHEWQzb0o to, e.g., $DATA, and extract the file under the same directory. Then, navigate to `Dassl.pytorch/datasets/dg` and run the following command in your terminal
+```bash
+python cifar_c.py $DATA/CIFAR-10-C
+```
+where the first argument denotes the path to the (uncompressed) CIFAR-10-C dataset.
+
+The script will extract images from the `.npy` files and save them to `cifar10_c/` created under $DATA. The file structure will look like
+```
+cifar10_c/
+    brightness/
+        1/ # 5 intensity levels in total
+        2/
+        3/
+        4/
+        5/
+    ... # 19 corruption types in total
+```
+
+Note that `cifar10_c/` only contains the test images. The training images are the normal CIFAR-10 images. See [CIFAR10/100 and SVHN](#cifar10100-and-svhn) for how to prepare the CIFAR-10 dataset.
+
+### CIFAR-100-C
+
+First download the CIFAR-100-C dataset from https://zenodo.org/record/3555552#.YFxpQmQzb0o to, e.g., $DATA, and extract the file under the same directory. Then, navigate to `Dassl.pytorch/datasets/dg` and run the following command in your terminal
+```bash
+python cifar_c.py $DATA/CIFAR-100-C
+```
+where the first argument denotes the path to the (uncompressed) CIFAR-100-C dataset.
+
+The script will extract images from the `.npy` files and save them to `cifar100_c/` created under $DATA. The file structure will look like
+```
+cifar100_c/
+    brightness/
+        1/ # 5 intensity levels in total
+        2/
+        3/
+        4/
+        5/
+    ... # 19 corruption types in total
+```
+
+Note that `cifar100_c/` only contains the test images. The training images are the normal CIFAR-100 images. See [CIFAR10/100 and SVHN](#cifar10100-and-svhn) for how to prepare the CIFAR-100 dataset.
+
 ## Semi-Supervised Learning
 
 ### CIFAR10/100 and SVHN
@@ -216,13 +281,13 @@ python cifar10_cifar100_svhn.py $DATA
 This will create three folders under `$DATA`, i.e.
 
 ```
-ssl_cifar10/
+cifar10/
     train/
     test/
-ssl_cifar100/
+cifar100/
     train/
     test/
-ssl_svhn/
+svhn/
     train/
     test/
 ```

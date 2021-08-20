@@ -20,7 +20,11 @@ __all__ = [
 
 
 def save_checkpoint(
-    state, save_dir, is_best=False, remove_module_from_keys=False
+    state,
+    save_dir,
+    is_best=False,
+    remove_module_from_keys=True,
+    model_name=''
 ):
     r"""Save checkpoint.
 
@@ -30,7 +34,8 @@ def save_checkpoint(
         is_best (bool, optional): if True, this checkpoint will be copied and named
             ``model-best.pth.tar``. Default is False.
         remove_module_from_keys (bool, optional): whether to remove "module."
-            from layer names. Default is False.
+            from layer names. Default is True.
+        model_name (str, optional): model name to save.
 
     Examples::
         >>> state = {
@@ -41,6 +46,7 @@ def save_checkpoint(
         >>> save_checkpoint(state, 'log/my_model')
     """
     mkdir_if_missing(save_dir)
+
     if remove_module_from_keys:
         # remove 'module.' in state_dict's keys
         state_dict = state['state_dict']
@@ -50,15 +56,21 @@ def save_checkpoint(
                 k = k[7:]
             new_state_dict[k] = v
         state['state_dict'] = new_state_dict
-    # save
+
+    # save model
     epoch = state['epoch']
-    fpath = osp.join(save_dir, 'model.pth.tar-' + str(epoch))
+    if not model_name:
+        model_name = 'model.pth.tar-' + str(epoch)
+    fpath = osp.join(save_dir, model_name)
     torch.save(state, fpath)
     print('Checkpoint saved to "{}"'.format(fpath))
+
+    # save current model name
     checkpoint_file = osp.join(save_dir, 'checkpoint')
     checkpoint = open(checkpoint_file, 'w+')
     checkpoint.write('{}\n'.format(osp.basename(fpath)))
     checkpoint.close()
+
     if is_best:
         best_fpath = osp.join(osp.dirname(fpath), 'model-best.pth.tar')
         shutil.copy(fpath, best_fpath)
@@ -83,20 +95,26 @@ def load_checkpoint(fpath):
     """
     if fpath is None:
         raise ValueError('File path is None')
+
     if not osp.exists(fpath):
         raise FileNotFoundError('File is not found at "{}"'.format(fpath))
+
     map_location = None if torch.cuda.is_available() else 'cpu'
+
     try:
         checkpoint = torch.load(fpath, map_location=map_location)
+
     except UnicodeDecodeError:
         pickle.load = partial(pickle.load, encoding="latin1")
         pickle.Unpickler = partial(pickle.Unpickler, encoding="latin1")
         checkpoint = torch.load(
             fpath, pickle_module=pickle, map_location=map_location
         )
+
     except Exception:
         print('Unable to load checkpoint from "{}"'.format(fpath))
         raise
+
     return checkpoint
 
 
@@ -122,18 +140,23 @@ def resume_from_checkpoint(fdir, model, optimizer=None, scheduler=None):
     with open(osp.join(fdir, 'checkpoint'), 'r') as checkpoint:
         model_name = checkpoint.readlines()[0].strip('\n')
         fpath = osp.join(fdir, model_name)
+
     print('Loading checkpoint from "{}"'.format(fpath))
     checkpoint = load_checkpoint(fpath)
     model.load_state_dict(checkpoint['state_dict'])
     print('Loaded model weights')
+
     if optimizer is not None and 'optimizer' in checkpoint.keys():
         optimizer.load_state_dict(checkpoint['optimizer'])
         print('Loaded optimizer')
+
     if scheduler is not None and 'scheduler' in checkpoint.keys():
         scheduler.load_state_dict(checkpoint['scheduler'])
         print('Loaded scheduler')
+
     start_epoch = checkpoint['epoch']
     print('Previous epoch: {}'.format(start_epoch))
+
     return start_epoch
 
 

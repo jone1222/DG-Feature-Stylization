@@ -35,8 +35,6 @@ class Classification(EvaluatorBase):
         self._per_class_res = None
         self._y_true = []
         self._y_pred = []
-        self.best_acc = 0
-        self.best_epoch = 0
         if cfg.TEST.PER_CLASS_RESULT:
             assert lab2cname is not None
             self._per_class_res = defaultdict(list)
@@ -44,13 +42,15 @@ class Classification(EvaluatorBase):
     def reset(self):
         self._correct = 0
         self._total = 0
+        if self._per_class_res is not None:
+            self._per_class_res = defaultdict(list)
 
     def process(self, mo, gt):
         # mo (torch.Tensor): model output [batch, num_classes]
         # gt (torch.LongTensor): ground truth [batch]
         pred = mo.max(1)[1]
-        matched = pred.eq(gt).float()
-        self._correct += int(matched.sum().item())
+        matches = pred.eq(gt).float()
+        self._correct += int(matches.sum().item())
         self._total += gt.shape[0]
 
         self._y_true.extend(gt.data.cpu().numpy().tolist())
@@ -59,28 +59,23 @@ class Classification(EvaluatorBase):
         if self._per_class_res is not None:
             for i, label in enumerate(gt):
                 label = label.item()
-                matched_i = int(matched[i].item())
-                self._per_class_res[label].append(matched_i)
+                matches_i = int(matches[i].item())
+                self._per_class_res[label].append(matches_i)
 
     def evaluate(self):
         results = OrderedDict()
         acc = 100. * self._correct / self._total
         err = 100. - acc
+        # The first value will be returned by trainer.test()
         results['accuracy'] = acc
         results['error_rate'] = err
-        if self.best_acc <= acc:
-            self.best_acc = acc
-        results['best_acc']  = self.best_acc
-
 
         print(
             '=> result\n'
             '* total: {:,}\n'
             '* correct: {:,}\n'
             '* accuracy: {:.2f}%\n'
-            '* error: {:.2f}%\n'
-            '* best_accuracy: {:.2f}%'.format(self._total, self._correct, acc, err, self.best_acc)
-
+            '* error: {:.2f}%'.format(self._total, self._correct, acc, err)
         )
 
         if self._per_class_res is not None:
@@ -105,7 +100,10 @@ class Classification(EvaluatorBase):
                         label, classname, total, correct, acc
                     )
                 )
-            print('* average: {:.2f}%'.format(np.mean(accs)))
+            mean_acc = np.mean(accs)
+            print('* average: {:.2f}%'.format(mean_acc))
+
+            results['perclass_accuracy'] = mean_acc
 
         if self.cfg.TEST.COMPUTE_CMAT:
             cmat = confusion_matrix(

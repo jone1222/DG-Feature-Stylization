@@ -5,7 +5,6 @@ import torch.utils.model_zoo as model_zoo
 from .build import BACKBONE_REGISTRY
 from .backbone import Backbone
 
-
 model_urls = {
     'alexnet': 'https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth',
 }

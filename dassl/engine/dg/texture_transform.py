@@ -236,7 +236,7 @@ class TextureTransform(TrainerX):
             tag = '{}/{}'.format(split, k)
             self.write_scalar(tag, v, self.epoch)
 
-        # return results
+        return results['accuracy']
 
 class SupConLoss(nn.Module):
     """Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.

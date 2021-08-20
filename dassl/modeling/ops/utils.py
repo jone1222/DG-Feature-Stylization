@@ -28,6 +28,8 @@ def shuffle_index(data, label):
 def create_onehot(label, num_classes):
     """Create one-hot tensor.
 
+    We suggest using nn.functional.one_hot.
+
     Args:
         label (torch.Tensor): 1-D tensor.
         num_classes (int): number of classes.
@@ -70,4 +72,4 @@ def ema_model_update(model, ema_model, alpha):
         alpha (float): ema decay rate.
     """
     for ema_param, param in zip(ema_model.parameters(), model.parameters()):
-        ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+        ema_param.data.mul_(alpha).add_(param.data, alpha=1 - alpha)

@@ -1,5 +1,6 @@
 import torch
 import torchvision.transforms as T
+from PIL import Image
 from torch.utils.data import Dataset as TorchDataset
 
 from dassl.utils import read_image
@@ -8,6 +9,12 @@ from .datasets import build_dataset
 from .samplers import build_sampler
 from .transforms import build_transform
 
+INTERPOLATION_MODES = {
+    'bilinear': Image.BILINEAR,
+    'bicubic': Image.BICUBIC,
+    'nearest': Image.NEAREST
+}
+
 
 def build_data_loader(
     cfg,
@@ -15,6 +22,7 @@ def build_data_loader(
     data_source=None,
     batch_size=64,
     n_domain=0,
+    n_ins=2,
     tfm=None,
     is_train=True,
     dataset_wrapper=None
@@ -25,7 +33,8 @@ def build_data_loader(
         cfg=cfg,
         data_source=data_source,
         batch_size=batch_size,
-        n_domain=n_domain
+        n_domain=n_domain,
+        n_ins=n_ins
     )
 
     if dataset_wrapper is None:
@@ -76,6 +85,7 @@ class DataManager:
             data_source=dataset.train_x,
             batch_size=cfg.DATALOADER.TRAIN_X.BATCH_SIZE,
             n_domain=cfg.DATALOADER.TRAIN_X.N_DOMAIN,
+            n_ins=cfg.DATALOADER.TRAIN_X.N_INS,
             tfm=tfm_train,
             is_train=True,
             dataset_wrapper=dataset_wrapper
@@ -87,11 +97,13 @@ class DataManager:
             sampler_type_ = cfg.DATALOADER.TRAIN_U.SAMPLER
             batch_size_ = cfg.DATALOADER.TRAIN_U.BATCH_SIZE
             n_domain_ = cfg.DATALOADER.TRAIN_U.N_DOMAIN
+            n_ins_ = cfg.DATALOADER.TRAIN_U.N_INS
 
             if cfg.DATALOADER.TRAIN_U.SAME_AS_X:
                 sampler_type_ = cfg.DATALOADER.TRAIN_X.SAMPLER
                 batch_size_ = cfg.DATALOADER.TRAIN_X.BATCH_SIZE
                 n_domain_ = cfg.DATALOADER.TRAIN_X.N_DOMAIN
+                n_ins_ = cfg.DATALOADER.TRAIN_X.N_INS
 
             train_loader_u = build_data_loader(
                 cfg,
@@ -99,6 +111,7 @@ class DataManager:
                 data_source=dataset.train_u,
                 batch_size=batch_size_,
                 n_domain=n_domain_,
+                n_ins=n_ins_,
                 tfm=tfm_train,
                 is_train=True,
                 dataset_wrapper=dataset_wrapper
@@ -183,11 +196,11 @@ class DatasetWrapper(TorchDataset):
     def __init__(self, cfg, data_source, transform=None, is_train=False):
         self.cfg = cfg
         self.data_source = data_source
-        # transform accepts list (tuple) as input
-        self.transform = transform
+        self.transform = transform # accept list (tuple) as input
         self.is_train = is_train
         # Augmenting an image K>1 times is only allowed during training
         self.k_tfm = cfg.DATALOADER.K_TRANSFORMS if is_train else 1
+        self.return_img0 = cfg.DATALOADER.RETURN_IMG0
 
         if self.k_tfm > 1 and transform is None:
             raise ValueError(
@@ -195,9 +208,10 @@ class DatasetWrapper(TorchDataset):
                 'because transform is None'.format(self.k_tfm)
             )
 
-        # Build transform without any data augmentation
+        # Build transform that doesn't apply any data augmentation
+        interp_mode = INTERPOLATION_MODES[cfg.INPUT.INTERPOLATION]
         to_tensor = []
-        to_tensor += [T.Resize(cfg.INPUT.SIZE)]
+        to_tensor += [T.Resize(cfg.INPUT.SIZE, interpolation=interp_mode)]
         to_tensor += [T.ToTensor()]
         if 'normalize' in cfg.INPUT.TRANSFORMS:
             normalize = T.Normalize(
@@ -232,8 +246,8 @@ class DatasetWrapper(TorchDataset):
                 img = self._transform_image(self.transform, img0)
                 output['img'] = img
 
-        img0 = self.to_tensor(img0)
-        output['img0'] = img0
+        if self.return_img0:
+            output['img0'] = self.to_tensor(img0)
 
         return output
 

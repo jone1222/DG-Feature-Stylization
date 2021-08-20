@@ -5,11 +5,6 @@ Licensed under the CC BY-NC-SA 4.0
 """
 import torch
 import torch.nn as nn
-import numpy as np
-from PIL import Image
-from scipy import linalg
-import imageio
-import pdb
 
 def svd(feat, iden=False, device='cuda:0'):
 	size = feat.size()
@@ -470,32 +465,7 @@ def denorm(x):
 	out = (x+1)/2
 	return out.clamp_(0, 1)
 
-def save_video(video, save_path, type='photo'):
-	video=denorm(video)
-	'''
-	vid_lst=[]
-	for i in range(0, num_samples*num_samples, num_samples):
-		temp_vid = list(video[i:i+num_samples])
-		temp_vid = torch.cat(temp_vid, dim=-1)
-		vid_lst.append(temp_vid)
-		
-	save_videos = torch.cat(vid_lst, dim=2)
-	'''
-	
-	save_videos = video.data.cpu().numpy().transpose(0,2,3,1)
-	outputdata = save_videos * 255
-	#outputdata = ((save_videos+1)/2) * 255
-	outputdata = outputdata.astype(np.uint8)
-	dir_path = save_path
-	if not os.path.exists(dir_path):
-		os.makedirs(dir_path)
-	if type == 'photo':
-		gif_file_path = os.path.join(dir_path, 'Photo_StylizedVideo.gif')
-	elif type == 'art':
-		gif_file_path = os.path.join(dir_path, 'Art_StylizedVideo.gif')
-	else:
-		gif_file_path = os.path.join(dir_path, 'content_StylizedVideo.gif')
-	imageio.mimsave(gif_file_path, outputdata, fps=25)
+
 
 
 

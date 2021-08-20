@@ -14,6 +14,8 @@ class DomainNet(DatasetBase):
         - Around 0.6M images.
         - 345 categories.
         - URL: http://ai.bu.edu/M3SDA/.
+    
+    Special note: the t-shirt class (327) is missing in painting_train.txt.
 
     Reference:
         - Peng et al. Moment Matching for Multi-Source Domain
@@ -35,9 +37,12 @@ class DomainNet(DatasetBase):
 
         train_x = self._read_data(cfg.DATASET.SOURCE_DOMAINS, split='train')
         train_u = self._read_data(cfg.DATASET.TARGET_DOMAINS, split='train')
+        val = self._read_data(cfg.DATASET.SOURCE_DOMAINS, split='test')
         test = self._read_data(cfg.DATASET.TARGET_DOMAINS, split='test')
 
-        super().__init__(train_x=train_x, train_u=train_u, test=test)
+        train_x = self.generate_fewshot_dataset(train_x, num_shots=cfg.DATASET.NUM_SHOTS)
+
+        super().__init__(train_x=train_x, train_u=train_u, val=val, test=test)
 
     def _read_data(self, input_domains, split='train'):
         items = []
