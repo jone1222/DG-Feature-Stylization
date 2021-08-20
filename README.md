@@ -48,8 +48,9 @@ python setup.py develop
 ```
 
 ### Datasets
-Download links of datasets are available in [DATASETS.md](DATASETS.md)
-Ensure that the downloaded datasets are located under the same root directory as follows:
+Download links of datasets are available in [DATASETS.md](DATASETS.md).
+
+Please ensure that the downloaded datasets are located under the same root directory as follows:
 ```
 dataset_root/
     pacs/
@@ -91,5 +92,5 @@ If you find this work useful for your research, please cite:
 
 ## Contact
 
-For additional comments or questions, please contact us via this email:
+For any comments or questions, please contact us via this email:
 [jone9312@yonsei.ac.kr](jone9312@yonsei.ac.kr)
