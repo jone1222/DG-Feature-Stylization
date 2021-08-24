@@ -501,7 +501,7 @@ class SimpleTrainer(TrainerBase):
         ) % self.cfg.TRAIN.CHECKPOINT_FREQ == 0 if self.cfg.TRAIN.CHECKPOINT_FREQ > 0 else False
 
         if do_test and self.cfg.TEST.FINAL_MODEL == 'best_val':
-            curr_result = self.test(split='val')
+            curr_result = self.test(split='test')
             is_best = curr_result > self.best_result
             if is_best:
                 self.best_result = curr_result

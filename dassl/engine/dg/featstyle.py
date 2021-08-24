@@ -61,6 +61,7 @@ class FeatureStylization(TrainerX):
         cls_mask = cls_mask.repeat(2, 2)
         domain_mask = domain_mask.repeat(2, 2)
 
+        # 2N X 2N matrix where diagonal elements are 0, otherwise 1
         logits_mask = torch.scatter(
             torch.ones_like(cls_mask),
             1,
