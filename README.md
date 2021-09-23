@@ -2,7 +2,7 @@
 
 ### This is an official implementation of "Feature Stylization and Domain-aware Contrastive Loss for Domain Generalization" (ACMMM 2021 Oral)
 
-> ## Domain Aware Universal Style Transfer
+> ## Feature Stylization and Domain-aware Contrastive Loss for Domain Generalization
 > 
 > Seogkyu Jeon, Kibeom Hong, Pilhyeon Lee, Jewook Lee, Hyeran Byun (Yonsei Univ.)
 >
