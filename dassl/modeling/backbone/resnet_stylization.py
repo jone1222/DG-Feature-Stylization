@@ -46,6 +46,7 @@ class FeatureStylizationBlock(nn.Module):
             up_pooled = torch.nn.functional.interpolate(pooled, size=[x.size(2), x.size(3)], mode=interpolate_mode)
             HH = x - up_pooled
             LL = up_pooled
+
         elif encode_mode == 'no_pooling':
             HH = torch.zeros_like(x)
             LL = x
@@ -89,6 +90,24 @@ class FeatureStylizationBlock(nn.Module):
         stylized_LL = sigma_new_reshpae * normalized_LL + mu_new_reshape
 
         return stylized_LL
+
+    def visualize_component(self, component, name='Component'):
+        # Channel_wise Pooling --> B x 1 x H x W
+        CP = torch.mean(component, dim=1, keepdim=True)
+        B, C, H, W = CP.shape
+
+        # min max normalization
+        CP = CP.view(B, -1)
+        CP = CP - CP.min(dim=1)[0].unsqueeze(1)
+        CP = CP / CP.max(dim=1)[0].unsqueeze(1)
+        CP = CP.view(B, 1, H, W)
+
+        B, C, H, W = CP.shape
+        CP_up = torch.nn.functional.interpolate(CP, size=[224, 224], mode='bilinear').repeat(1, 3, 1, 1)
+        img_out = CP_up
+        # img_out = torch.cat([x_org, CP_up], dim=3)
+        from torchvision.utils import make_grid, save_image
+        save_image(make_grid(img_out, nrow=8), "./"+name+".jpg")
 
     def decode_LL_HH(self, LL, HH):
         return HH + LL
